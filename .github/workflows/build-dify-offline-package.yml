@@ -7,12 +7,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Pull all required Docker images
         run: |
-          echo "Pulling all Dify v1.1.0 dependencies..."
+          echo "🔄 Pulling Dify v1.1.0 dependencies..."
           docker pull redis:7-alpine
           docker pull postgres:15-alpine
           docker pull squidproxy/squid:4.16
@@ -21,10 +21,12 @@ jobs:
           docker pull busybox:1.39
           docker pull langgenius/dify-sandbox:0.2.12
           docker pull langgenius/dify-plugin-daemon:latest
+          echo "✅ All images pulled successfully."
 
-      - name: Save images to tar files
+      - name: Save images as tar files
         run: |
           mkdir -p dify-offline/images
+          echo "💾 Saving images to tar files..."
           docker save redis:7-alpine -o dify-offline/images/redis.tar
           docker save postgres:15-alpine -o dify-offline/images/postgres.tar
           docker save squidproxy/squid:4.16 -o dify-offline/images/squid.tar
@@ -33,11 +35,12 @@ jobs:
           docker save busybox:1.39 -o dify-offline/images/busybox.tar
           docker save langgenius/dify-sandbox:0.2.12 -o dify-offline/images/dify-sandbox.tar
           docker save langgenius/dify-plugin-daemon:latest -o dify-offline/images/dify-plugin-daemon.tar
+          echo "✅ All .tar files saved."
 
       - name: Create docker-compose.yaml
         run: |
-          cat > dify-offline/docker-compose.yaml << 'EOF'
-version: '3.8'
+          mkdir -p dify-offline
+          echo 'version: "3.8"
 
 services:
   redis:
@@ -138,11 +141,12 @@ services:
 
 networks:
   dify-network:
-    driver: bridge
-EOF
+    driver: bridge' > dify-offline/docker-compose.yaml
+          echo "✅ docker-compose.yaml created."
 
       - name: Create load script (Linux/WSL2)
         run: |
+          mkdir -p dify-offline
           cat > dify-offline/load-images.sh << 'EOF'
 #!/bin/bash
 echo "Loading Dify offline images..."
@@ -154,10 +158,12 @@ done
 echo "All images loaded successfully!"
 EOF
           chmod +x dify-offline/load-images.sh
+          echo "✅ load-images.sh created and made executable."
 
       - name: Compress package
         run: |
           zip -r dify-offline.zip dify-offline
+          echo "📦 ZIP package created: dify-offline.zip"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
