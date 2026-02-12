@@ -1,4 +1,4 @@
-name: Build Dify Offline Deployment Package
+name: Build Dify Offline Package
 
 on:
   workflow_dispatch:
@@ -7,12 +7,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Pull all required Docker images
+      - name: Pull Docker images
         run: |
-          echo "🔄 Pulling Dify v1.1.0 dependencies..."
+          echo "🔄 Pulling Dify v1.1.0 images..."
           docker pull redis:7-alpine
           docker pull postgres:15-alpine
           docker pull squidproxy/squid:4.16
@@ -21,12 +21,10 @@ jobs:
           docker pull busybox:1.39
           docker pull langgenius/dify-sandbox:0.2.12
           docker pull langgenius/dify-plugin-daemon:latest
-          echo "✅ All images pulled successfully."
 
-      - name: Save images as tar files
+      - name: Save images as tar
         run: |
           mkdir -p dify-offline/images
-          echo "💾 Saving images to tar files..."
           docker save redis:7-alpine -o dify-offline/images/redis.tar
           docker save postgres:15-alpine -o dify-offline/images/postgres.tar
           docker save squidproxy/squid:4.16 -o dify-offline/images/squid.tar
@@ -35,141 +33,20 @@ jobs:
           docker save busybox:1.39 -o dify-offline/images/busybox.tar
           docker save langgenius/dify-sandbox:0.2.12 -o dify-offline/images/dify-sandbox.tar
           docker save langgenius/dify-plugin-daemon:latest -o dify-offline/images/dify-plugin-daemon.tar
-          echo "✅ All .tar files saved."
 
-          - name: Create docker-compose.yaml
+      - name: Copy config files
         run: |
           mkdir -p dify-offline
-          cat > dify-offline/docker-compose.yaml << 'EOF'
-version: '3.8'
-
-services:
-  redis:
-    image: redis:7-alpine
-    restart: always
-    command: redis-server --requirepass yourpassword
-    environment:
-      REDIS_PASSWORD: yourpassword
-    ports:
-      - "6379:6379"
-    networks:
-      - dify-network
-
-  postgres:
-    image: postgres:15-alpine
-    restart: always
-    environment:
-      POSTGRES_DB: dify
-      POSTGRES_USER: dify
-      POSTGRES_PASSWORD: yourpassword
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - dify-network
-
-  squid:
-    image: squidproxy/squid:4.16
-    restart: always
-    ports:
-      - "3128:3128"
-    volumes:
-      - ./data/squid:/etc/squid
-    networks:
-      - dify-network
-
-  dify-api:
-    image: langgenius/dify-api:v1.1.0
-    restart: always
-    depends_on:
-      - redis
-      - postgres
-      - squid
-    environment:
-      DATABASE_URL: postgresql://dify:dify@postgres:5432/dify
-      REDIS_URL: redis://redis:6379/0
-      SQUID_PROXY: http://squid:3128
-      JWT_SECRET: your_jwt_secret_key
-    ports:
-      - "8000:8000"
-    networks:
-      - dify-network
-
-  dify-web:
-    image: langgenius/dify-web:v1.1.0
-    restart: always
-    depends_on:
-      - dify-api
-    environment:
-      API_BASE_URL: http://dify-api:8000
-    ports:
-      - "80:80"
-    networks:
-      - dify-network
-
-  busybox:
-    image: busybox:1.39
-    restart: always
-    networks:
-      - dify-network
-
-  dify-sandbox:
-    image: langgenius/dify-sandbox:0.2.12
-    restart: always
-    depends_on:
-      - redis
-      - postgres
-    environment:
-      API_KEY: dify-sandbox
-      GIN_MODE: release
-      WORKER_TIMEOUT: 15
-      ENABLE_NETWORK: "true"
-      HTTP_PROXY: http://squid:3128
-    networks:
-      - dify-network
-
-  dify-plugin-daemon:
-    image: langgenius/dify-plugin-daemon:latest
-    restart: always
-    depends_on:
-      - dify-api
-      - redis
-    environment:
-      API_BASE_URL: http://dify-api:8000
-    networks:
-      - dify-network
-
-networks:
-  dify-network:
-    driver: bridge
-    EOF
-        echo "✅ docker-compose.yaml created."
-
-      - name: Create load script (Linux/WSL2)
-        run: |
-          mkdir -p dify-offline
-          cat > dify-offline/load-images.sh << 'EOF'
-#!/bin/bash
-echo "Loading Dify offline images..."
-cd "$(dirname "$0")"
-for img in images/*.tar; do
-  echo "Loading $img..."
-  docker load -i "$img"
-done
-echo "All images loaded successfully!"
-EOF
+          cp scripts/docker-compose.yaml dify-offline/
+          cp scripts/load-images.sh dify-offline/
           chmod +x dify-offline/load-images.sh
-          echo "✅ load-images.sh created and made executable."
 
-      - name: Compress package
-        run: |
-          zip -r dify-offline.zip dify-offline
-          echo "📦 ZIP package created: dify-offline.zip"
+      - name: Create ZIP package
+        run: zip -r dify-offline.zip dify-offline
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dify-offline-deployment-package
+          name: dify-offline-package
           path: dify-offline.zip
           retention-days: 7
