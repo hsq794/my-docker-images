@@ -9,12 +9,12 @@ jobs:
     steps:
       - name: Pull squid image
         run: |
-          docker pull squidproxy/squid:latest
-          echo "✅ squid:latest pulled successfully"
+          docker pull squidproxy/squid:4.16
+          echo "✅ squid:4.16 pulled successfully"
 
       - name: Save to tar
         run: |
-          docker save squidproxy/squid:latest -o squid.tar
+          docker save squidproxy/squid:4.16 -o squid.tar
           ls -l squid.tar
 
       - name: Upload artifact
