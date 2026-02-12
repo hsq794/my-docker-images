@@ -1,0 +1,25 @@
+name: Build and Upload Squid Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull squid image
+        run: |
+          docker pull squidproxy/squid:latest
+          echo "✅ squid:latest pulled successfully"
+
+      - name: Save to tar
+        run: |
+          docker save squidproxy/squid:latest -o squid.tar
+          ls -l squid.tar
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: squid-image
+          path: squid.tar
+          retention-days: 7
